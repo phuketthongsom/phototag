@@ -12,11 +12,12 @@ from openai import OpenAI
 
 PROMPT = (
     "You are a merchandising assistant. Analyze the product photo and respond with a JSON "
-    "object containing three fields only: "
+    "object containing five fields only: "
     '"description_en": a 55-70 word English paragraph describing the product shape, dominant '
     "colors, and any cultural or symbolic meaning implied by the visuals; "
     '"description_th": the same information written in fluent Thai; '
-    '"tags": an array of 5-8 short English keyword tags without commas. '
+    '"tags_en": an array of 6-10 short English keyword tags (no commas in individual tags); '
+    '"tags_th": an array of 6-10 short Thai keyword tags (no commas in individual tags). '
     "Do not invent details that are not clearly visible."
 )
 
@@ -40,7 +41,9 @@ def extract_sku(filename: str) -> str:
     return match.group(1) if match else stem
 
 
-def request_analysis(client: OpenAI, image_path: Path) -> Tuple[str, str, List[str]]:
+def request_analysis(
+    client: OpenAI, image_path: Path
+) -> Tuple[str, str, List[str], List[str]]:
     encoded_image = encode_image_as_data_url(image_path)
     response = client.responses.create(
         model="gpt-4.1-mini",
@@ -64,13 +67,16 @@ def request_analysis(client: OpenAI, image_path: Path) -> Tuple[str, str, List[s
 
     description_en = payload.get("description_en", "").strip()
     description_th = payload.get("description_th", "").strip()
-    tags = payload.get("tags", [])
+    tags_en = payload.get("tags_en", [])
+    tags_th = payload.get("tags_th", [])
     if not description_en or not description_th:
         raise ValueError(f"Missing bilingual descriptions in response for {image_path.name}")
-    if not isinstance(tags, Iterable) or isinstance(tags, str):
-        raise ValueError(f"Tags must be a list for {image_path.name}")
-    tag_list = [str(tag).strip() for tag in tags if str(tag).strip()]
-    return description_en, description_th, tag_list
+    for label, tags in (("tags_en", tags_en), ("tags_th", tags_th)):
+        if not isinstance(tags, Iterable) or isinstance(tags, str):
+            raise ValueError(f"{label} must be a list for {image_path.name}")
+    tag_list_en = [str(tag).strip() for tag in tags_en if str(tag).strip()]
+    tag_list_th = [str(tag).strip() for tag in tags_th if str(tag).strip()]
+    return description_en, description_th, tag_list_en, tag_list_th
 
 
 def build_records(client: OpenAI, photo_dir: Path) -> List[dict]:
@@ -80,14 +86,15 @@ def build_records(client: OpenAI, photo_dir: Path) -> List[dict]:
             continue
         if image_path.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp"}:
             continue
-        description_en, description_th, tags = request_analysis(client, image_path)
+        description_en, description_th, tags_en, tags_th = request_analysis(client, image_path)
         records.append(
             {
                 "image file name": image_path.name,
                 "SKU name": extract_sku(image_path.name),
                 "description_en": description_en,
                 "description_th": description_th,
-                "tag": ", ".join(tags),
+                "tags_en": ", ".join(tags_en),
+                "tags_th": ", ".join(tags_th),
             }
         )
     return records
@@ -96,7 +103,14 @@ def build_records(client: OpenAI, photo_dir: Path) -> List[dict]:
 def write_to_excel(records: List[dict], output_path: Path) -> None:
     df = pd.DataFrame(
         records,
-        columns=["image file name", "SKU name", "description_en", "description_th", "tag"],
+        columns=[
+            "image file name",
+            "SKU name",
+            "description_en",
+            "description_th",
+            "tags_en",
+            "tags_th",
+        ],
     )
     df.to_excel(output_path, index=False)
 

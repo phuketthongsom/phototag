@@ -27,11 +27,11 @@ python -m pip install --user openai pandas
 The script will:
 - Derive the SKU code from the image filename (everything before `_output`).
 - Send the image to the OpenAI Responses API with a merchandising prompt.
-- Return bilingual paragraphs describing shape, dominant colors, and symbolic meaning in both English and Thai, plus 5–8 keyword tags.
-- Write results to an Excel file with these columns: `image file name`, `SKU name`, `description_en`, `description_th`, `tag`.
+- Return bilingual paragraphs describing shape, dominant colors, and symbolic meaning in both English and Thai, plus 6–10 keyword tags in each language.
+- Write results to an Excel file with these columns: `image file name`, `SKU name`, `description_en`, `description_th`, `tags_en`, `tags_th`.
 
 ## Customization
-- **Prompt**: edit the `PROMPT` constant in `describe_images.py` to refine tone, word count, or tag count.
+- **Prompt**: edit the `PROMPT` constant in `describe_images.py` to refine tone, word count, or tag count per language.
 - **Model/temperature**: adjust `model` or `temperature` in `request_analysis` if you prefer different behavior or costs.
 - **Output file**: change the `--output` argument to write a different Excel filename.
 
